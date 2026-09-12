@@ -32,7 +32,7 @@ function parseInterval(value: string): number | undefined {
 }
 
 function newID(): string {
-  return Math.random().toString(36).slice(2, 12)
+  return Math.random().toString(36).slice(2).padEnd(10, "0").slice(0, 10)
 }
 
 async function loadLoops(ctx: any): Promise<Loop[]> {

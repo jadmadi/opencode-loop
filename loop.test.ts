@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import plugin, { armLoop, handleEvent, loadLoops, parseInterval, tickLoop } from "./loop.ts"
+import plugin, { addLoop, armLoop, handleEvent, loadLoops, parseInterval, tickLoop } from "./loop.ts"
 
 function makeCtx() {
   const store = new Map<string, unknown>()
@@ -190,6 +190,17 @@ describe("command", () => {
     expect(await loadLoops(ctx)).toHaveLength(0)
 
     await expect(run(commands, "stop nope")).rejects.toThrow(/unknown loop/)
+  })
+})
+
+describe("storage serialization", () => {
+  test("keeps both writes when two adds race", async () => {
+    const { ctx } = makeCtx()
+    await Promise.all([
+      addLoop(ctx, { id: "a", sessionID: "ses_a", prompt: "a", intervalMs: 1000, interval: "1s", active: false }),
+      addLoop(ctx, { id: "b", sessionID: "ses_b", prompt: "b", intervalMs: 1000, interval: "1s", active: false }),
+    ])
+    expect(await loadLoops(ctx)).toHaveLength(2)
   })
 })
 

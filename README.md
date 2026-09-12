@@ -26,8 +26,9 @@ For one project, put it in `.opencode/plugins/`. Tested against OpenCode
 Intervals accept `s`, `m`, `h`, and `d`: `30s`, `5m`, `2h`, `1d`.
 
 A tick posts the prompt to the session that created the loop. A tick is skipped
-while the previous run is still active, and becomes active again when that
-session emits `session.execution.succeeded`.
+while the previous run is still active, and the loop becomes active again when
+that session emits its turn-end event: `session.execution.succeeded`,
+`session.execution.failed`, or `session.execution.interrupted`.
 
 ## Notes
 
@@ -36,8 +37,9 @@ session emits `session.execution.succeeded`.
   load, but they do not fire between loads.
 - One loop per session. The turn-end event names the session, not the run, so a
   second loop could not tell whose run finished. The plugin rejects a second.
-- A run record shows `completed`, `skipped`, or `failed`. A failed or interrupted
-  run clears the active flag, so the loop keeps going.
+- A run record shows `completed`, `skipped`, or `failed`. The status is the most
+  recent outcome, so a later turn end can replace an earlier skip. A failed or
+  interrupted run clears the active flag, so the loop keeps going.
 - Command output has no normal channel, so list is surfaced as a command error
   message.
 
