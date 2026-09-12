@@ -1,14 +1,37 @@
 ---
 feature: loop
-status: in-progress
+status: delivered
 updated: 2026-09-12
 branch: feat/loop
-commits:
+commits: a7787c6..b6e406a
 ---
 
 # Loop
 
 ## Report
+
+**What was built** - A single-file OpenCode V2 plugin that runs a prompt on a
+fixed cadence. `/loop every <interval> <prompt>` registers a loop, `/loop list`
+shows them, and `/loop stop <id|all>` removes them. A tick posts the prompt to
+the session and marks the loop active; the session's turn-end event clears the
+flag, so a slow run does not stack. One loop per session. Definitions persist,
+loops re-arm when the plugin loads, and timers stop when it unloads.
+
+**Verification** - `bun test`: 16 pass, 0 fail, 48 assertions. Live: a 30 second
+loop fired twice in 75 seconds with two replies; `/loop list` showed the loop as
+completed; `/loop stop all` cleared it. Two review rounds covered four blocking
+items plus mediums and lows; all are resolved.
+
+**Journey log**
+
+1. Only `succeeded` cleared the active flag, so a failed or interrupted run
+   wedged a loop forever. All three turn-end events now clear it.
+2. A flag persisted from a previous load was never reset. `setup` resets it
+   before arming.
+3. One success event cleared every loop on a session, so the plugin now allows
+   one loop per session and the turn-end event maps cleanly to that loop.
+4. Intervals above the 32-bit timer limit fired at 1ms. `parseInterval` rejects
+   them.
 
 ## [S1] Problem
 
@@ -40,13 +63,13 @@ A command registers a recurring prompt, and a plugin timer runs it.
 
 ## Tasks
 
-- [ ] T1: the /loop command family with add, list, and stop - acceptance: a
+- [x] T1: the /loop command family with add, list, and stop - acceptance: a
       fake-context test round-trips a loop and rejects a bad interval (covers:
       S2)
-- [ ] T2: timer scheduling and re-arm on setup, with cleanup on unload -
+- [x] T2: timer scheduling and re-arm on setup, with cleanup on unload -
       acceptance: a test with an injected clock fires a loop, skips a run while
       one is active, and clears timers on cleanup (covers: S2; depends: T1)
-- [ ] T3: run reporting per loop - acceptance: the record shows skipped,
+- [x] T3: run reporting per loop - acceptance: the record shows skipped,
       completed, and failed states (covers: S2; depends: T2)
-- [ ] T4: README and NOTICE - acceptance: both files exist and name the MiMoCode
+- [x] T4: README and NOTICE - acceptance: both files exist and name the MiMoCode
       loop skill as the inspiration (covers: S2; depends: T2)
