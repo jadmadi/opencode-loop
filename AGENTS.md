@@ -36,8 +36,14 @@ grep loop ~/.local/share/opencode/log/opencode.log | tail
   timers and aborts the event subscription. Keep the timer function injectable
   so tests can drive it.
 - A tick calls `ctx.session.prompt({ sessionID, text })` and marks the loop
-  active. The `session.execution.succeeded` event for that session clears the
-  active flag.
+  active. The session's execution end event clears the flag: `succeeded` marks
+  completed, `failed` marks failed, and `interrupted` marks skipped.
+- One loop per session, because the event names the session, not the run. The
+  command rejects a second loop for the same session.
+- `setup` resets any stored `active` flag before arming, since an event that
+  would have cleared it already passed.
+- All storage mutations run through a promise chain so concurrent ticks and
+  events cannot lose writes.
 - `parseInterval` accepts `s`, `m`, `h`, and `d`.
 
 ## Layout

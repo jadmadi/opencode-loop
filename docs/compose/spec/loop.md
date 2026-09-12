@@ -23,9 +23,9 @@ A command registers a recurring prompt, and a plugin timer runs it.
 - `/loop every <interval> <prompt>` registers a loop. `/loop list` prints the
   loops. `/loop stop <id>` removes one. `/loop stop all` removes every loop.
 - The interval parses a small set of forms: `30s`, `5m`, `2h`, and `1d`.
-- The timer posts the prompt to the session that created the loop, or to a new
-  session when the loop asks for one. A run that is still active is skipped, so
-  a slow run does not stack.
+- The timer posts the prompt to the session that created the loop. One loop per
+  session, because the turn-end event names the session, not the run. A run that
+  is still active is skipped, so a slow run does not stack.
 - Loop definitions live in `ctx.storage` under `loops`. On plugin setup, defined
   loops re-arm while the server runs. `setup` returns a cleanup function that
   clears every timer.

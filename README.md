@@ -34,9 +34,12 @@ session emits `session.execution.succeeded`.
 - Loops live in the server process. They re-arm when the plugin loads and stop
   when it unloads. Definitions persist in storage, so they come back on the next
   load, but they do not fire between loads.
-- The run record shows `skipped`, `completed`, or `failed`.
-- Command output has no normal channel, so list and status are surfaced as a
-  command error message.
+- One loop per session. The turn-end event names the session, not the run, so a
+  second loop could not tell whose run finished. The plugin rejects a second.
+- A run record shows `completed`, `skipped`, or `failed`. A failed or interrupted
+  run clears the active flag, so the loop keeps going.
+- Command output has no normal channel, so list is surfaced as a command error
+  message.
 
 ## Tests
 

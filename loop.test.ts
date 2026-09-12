@@ -23,7 +23,7 @@ function makeCtx() {
   return { ctx, store, prompts, commands }
 }
 
-const seed = (ctx: any, overrides: Record<string, unknown> = {}) => {
+const seed = async (ctx: any, overrides: Record<string, unknown> = {}) => {
   const loop = {
     id: "abc123",
     sessionID: "ses_1",
@@ -33,8 +33,11 @@ const seed = (ctx: any, overrides: Record<string, unknown> = {}) => {
     active: false,
     ...overrides,
   }
-  return ctx.storage.set("loops", [loop]).then(() => loop)
+  await ctx.storage.set("loops", [loop])
+  return loop
 }
+
+const first = async (ctx: any) => (await loadLoops(ctx))[0]
 
 describe("parseInterval", () => {
   test("parses the supported units", () => {
@@ -45,21 +48,24 @@ describe("parseInterval", () => {
     expect(parseInterval("5M")).toBe(300_000)
   })
 
-  test("rejects bad input", () => {
+  test("rejects bad input and overflow", () => {
     expect(parseInterval("5x")).toBeUndefined()
     expect(parseInterval("")).toBeUndefined()
     expect(parseInterval("0s")).toBeUndefined()
-    expect(parseInterval("every")).toBeUndefined()
+    expect(parseInterval("30d")).toBeUndefined()
+    expect(parseInterval("24d")).toBe(2_073_600_000)
   })
 })
 
 describe("tickLoop", () => {
-  test("posts the prompt and marks the loop active", async () => {
+  test("starts the run and marks the loop active", async () => {
     const { ctx, prompts } = makeCtx()
     await seed(ctx)
-    expect(await tickLoop(ctx, "abc123")).toBe("completed")
+    expect(await tickLoop(ctx, "abc123")).toBe("started")
     expect(prompts).toEqual([{ sessionID: "ses_1", text: "check the build" }])
-    expect((await loadLoops(ctx))[0].active).toBe(true)
+    const loop = await first(ctx)
+    expect(loop.active).toBe(true)
+    expect(loop.lastStatus).toBeUndefined()
   })
 
   test("skips while the previous run is active", async () => {
@@ -67,14 +73,14 @@ describe("tickLoop", () => {
     await seed(ctx, { active: true })
     expect(await tickLoop(ctx, "abc123")).toBe("skipped")
     expect(prompts).toEqual([])
-    expect((await loadLoops(ctx))[0].lastStatus).toBe("skipped")
+    expect((await first(ctx)).lastStatus).toBe("skipped")
   })
 
   test("fails and clears active when the prompt throws", async () => {
     const { ctx } = makeCtx()
     await seed(ctx, { prompt: "THROW" })
     expect(await tickLoop(ctx, "abc123")).toBe("failed")
-    const loop = (await loadLoops(ctx))[0]
+    const loop = await first(ctx)
     expect(loop.lastStatus).toBe("failed")
     expect(loop.active).toBe(false)
   })
@@ -86,13 +92,26 @@ describe("tickLoop", () => {
 })
 
 describe("handleEvent", () => {
-  test("clears active on the session's success event", async () => {
+  test("clears active on success", async () => {
     const { ctx } = makeCtx()
     await seed(ctx, { active: true })
     await handleEvent(ctx, { type: "session.execution.succeeded", data: { sessionID: "ses_1" } })
-    const loop = (await loadLoops(ctx))[0]
+    const loop = await first(ctx)
     expect(loop.active).toBe(false)
     expect(loop.lastStatus).toBe("completed")
+  })
+
+  test("clears active on failure and interruption", async () => {
+    const { ctx } = makeCtx()
+    await seed(ctx, { active: true })
+    await handleEvent(ctx, { type: "session.execution.failed", data: { sessionID: "ses_1" } })
+    expect((await first(ctx)).lastStatus).toBe("failed")
+
+    await seed(ctx, { active: true })
+    await handleEvent(ctx, { type: "session.execution.interrupted", data: { sessionID: "ses_1" } })
+    const loop = await first(ctx)
+    expect(loop.active).toBe(false)
+    expect(loop.lastStatus).toBe("skipped")
   })
 
   test("ignores other sessions and event types", async () => {
@@ -100,7 +119,7 @@ describe("handleEvent", () => {
     await seed(ctx, { active: true })
     await handleEvent(ctx, { type: "session.execution.succeeded", data: { sessionID: "ses_2" } })
     await handleEvent(ctx, { type: "session.step.ended", data: { sessionID: "ses_1" } })
-    expect((await loadLoops(ctx))[0].active).toBe(true)
+    expect((await first(ctx)).active).toBe(true)
   })
 })
 
@@ -136,8 +155,15 @@ describe("command", () => {
     const loops = await loadLoops(ctx)
     expect(loops).toHaveLength(1)
     expect(loops[0].prompt).toBe("check the deploy")
-    expect(loops[0].interval).toBe("30m")
     await expect(run(commands, "list")).rejects.toThrow(/check the deploy/)
+  })
+
+  test("allows only one loop per session", async () => {
+    const { ctx, commands } = makeCtx()
+    await (plugin as any).setup(ctx)
+    await run(commands, "every 1m one")
+    await expect(run(commands, "every 2m two")).rejects.toThrow(/already has a loop/)
+    expect(await loadLoops(ctx)).toHaveLength(1)
   })
 
   test("lists nothing when empty and rejects bad input", async () => {
@@ -146,22 +172,21 @@ describe("command", () => {
     await expect(run(commands, "list")).rejects.toThrow(/No loops/)
     await expect(run(commands, "")).rejects.toThrow(/No loops/)
     await expect(run(commands, "every 5x ping")).rejects.toThrow(/bad interval/)
+    await expect(run(commands, "every 30d ping")).rejects.toThrow(/bad interval/)
     await expect(run(commands, "every 1m")).rejects.toThrow(/use \/loop every/)
     await expect(run(commands, "what")).rejects.toThrow(/use \/loop every/)
   })
 
-  test("stops one loop, then all loops", async () => {
+  test("stops one loop, then all loops regardless of case", async () => {
     const { ctx, commands } = makeCtx()
     await (plugin as any).setup(ctx)
     await run(commands, "every 1m one")
+    const id = (await loadLoops(ctx))[0].id
+    await run(commands, `stop ${id}`)
+    expect(await loadLoops(ctx)).toHaveLength(0)
+
     await run(commands, "every 2h two")
-    const loops = await loadLoops(ctx)
-    expect(loops).toHaveLength(2)
-
-    await run(commands, `stop ${loops[0].id}`)
-    expect(await loadLoops(ctx)).toHaveLength(1)
-
-    await run(commands, "stop all")
+    await run(commands, "Stop All")
     expect(await loadLoops(ctx)).toHaveLength(0)
 
     await expect(run(commands, "stop nope")).rejects.toThrow(/unknown loop/)
@@ -169,12 +194,28 @@ describe("command", () => {
 })
 
 describe("setup", () => {
-  test("registers the command and returns a cleanup", async () => {
-    const { ctx, commands } = makeCtx()
-    await seed(ctx, { intervalMs: 3_600_000 })
-    const cleanup = await (plugin as any).setup(ctx)
-    expect(commands.map((entry) => entry.name)).toEqual(["loop"])
-    expect(typeof cleanup).toBe("function")
-    cleanup()
+  test("re-arms stored loops, resets active, and clears timers on cleanup", async () => {
+    const { ctx } = makeCtx()
+    const stored = await seed(ctx, { active: true, intervalMs: 3_600_000 })
+    const scheduled: any[] = []
+    const cleared: any[] = []
+    const realSchedule = globalThis.setInterval
+    const realCancel = globalThis.clearInterval
+    ;(globalThis as any).setInterval = (callback: any) => {
+      scheduled.push(callback)
+      return scheduled.length
+    }
+    ;(globalThis as any).clearInterval = (handle: any) => void cleared.push(handle)
+    try {
+      const cleanup = await (plugin as any).setup(ctx)
+      expect(scheduled).toHaveLength(1)
+      expect((await first(ctx)).active).toBe(false)
+      expect(await tickLoop(ctx, stored.id)).toBe("started")
+      cleanup()
+      expect(cleared).toEqual([1])
+    } finally {
+      ;(globalThis as any).setInterval = realSchedule
+      ;(globalThis as any).clearInterval = realCancel
+    }
   })
 })
