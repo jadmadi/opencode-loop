@@ -9,6 +9,8 @@
 // The runtime does not resolve @opencode/plugin, so this file exports a plain
 // { id, setup } object.
 
+const VERSION = "0.1.0"
+
 type LoopStatus = "completed" | "skipped" | "failed"
 
 interface Loop {
@@ -163,7 +165,7 @@ const plugin = {
         execute: async ({ sessionID, prompt }: any) => {
           const text = typeof prompt?.text === "string" ? prompt.text.trim() : ""
           const lower = text.toLowerCase()
-          if (!text || lower === "list") throw new Error(listText(await loadLoops(ctx)))
+          if (!text || lower === "list") throw new Error(`${listText(await loadLoops(ctx))}\nloop ${VERSION}`)
 
           if (lower.startsWith("every ")) {
             const rest = text.slice(6).trim()
@@ -229,5 +231,5 @@ const plugin = {
   },
 }
 
-export { addLoop, armLoop, handleEvent, listText, loadLoops, parseInterval, removeLoop, tickLoop }
+export { addLoop, armLoop, handleEvent, listText, loadLoops, parseInterval, removeLoop, tickLoop, VERSION }
 export default plugin
