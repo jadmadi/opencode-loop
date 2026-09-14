@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import plugin, { addLoop, armLoop, handleEvent, loadLoops, parseInterval, tickLoop } from "./loop.ts"
+import plugin, { addLoop, armLoop, handleEvent, loadLoops, parseInterval, tickLoop, VERSION } from "./loop.ts"
 
 function makeCtx() {
   const store = new Map<string, unknown>()
@@ -228,5 +228,12 @@ describe("setup", () => {
       ;(globalThis as any).setInterval = realSchedule
       ;(globalThis as any).clearInterval = realCancel
     }
+  })
+})
+
+describe("version", () => {
+  test("VERSION matches package.json", async () => {
+    const pkg = (await Bun.file(new URL("./package.json", import.meta.url)).json()) as { version: string }
+    expect(VERSION).toBe(pkg.version)
   })
 })
