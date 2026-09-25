@@ -1,6 +1,7 @@
 {
   "name": "opencode-loop",
   "version": "2026.9.0",
+  "builtUnder": "2.0.16",
   "description": "OpenCode V2 plugin that runs a prompt on a fixed cadence",
   "type": "module",
   "license": "MIT",
