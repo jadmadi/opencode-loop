@@ -5,7 +5,7 @@ Guidance for agents working in this repository.
 ## What this is
 
 An OpenCode V2 plugin (`loop.ts`) that runs a prompt on a fixed cadence. No
-build step, no dependencies, MIT.
+build step, no dependencies, AGPL-3.0-only.
 
 ## Local development
 
