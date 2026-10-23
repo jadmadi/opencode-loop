@@ -6,10 +6,12 @@
 // skipped while the previous run is still going. One loop per session, because
 // the event payload identifies the session, not the run.
 //
-// The runtime does not resolve @opencode/plugin, so this file exports a plain
-// { id, setup } object.
+// The host provides @opencode/plugin at runtime, so this file uses
+// Plugin.define.
 
-const VERSION = "2026.9.0"
+import { Plugin } from "@opencode/plugin"
+
+const VERSION = "2026.10.0"
 
 type LoopStatus = "completed" | "skipped" | "failed"
 
@@ -142,7 +144,7 @@ function listText(loops: Loop[]): string {
     .join("\n")
 }
 
-const plugin = {
+const plugin = Plugin.define({
   id: "loop",
   async setup(ctx: any) {
     const timers = new Map<string, () => void>()
@@ -229,7 +231,7 @@ const plugin = {
       controller.abort()
     }
   },
-}
+})
 
 export { addLoop, armLoop, handleEvent, listText, loadLoops, parseInterval, removeLoop, tickLoop, VERSION }
 export default plugin
