@@ -20,7 +20,7 @@ curl -fsSL \
 
 For one project, put it in `.opencode/plugins/`. Tested against OpenCode v2.1.3.
 
-To pin a release, replace `main` in the URL with a tag such as `v0.1.0`.
+To pin a release, replace `main` in the URL with a tag such as `v2026.10.0`.
 
 ## Use
 
