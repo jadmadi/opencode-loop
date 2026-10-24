@@ -18,7 +18,7 @@ curl -fsSL \
   -o ~/.config/opencode/plugins/loop.ts
 ```
 
-For one project, put it in `.opencode/plugins/`. Tested against OpenCode v2.1.3.
+For one project, put it in `.opencode/plugins/`. Tested against OpenCode v2.1.4.
 
 To pin a release, replace `main` in the URL with a tag such as `v2026.10.0`.
 
